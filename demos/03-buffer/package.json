@@ -1,0 +1,19 @@
+{
+  "name": "demo-03-buffer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Demonstrates llmvantage's createBuffer: batch delivery + graceful drain over a burst of real Anthropic calls.",
+  "scripts": {
+    "start": "tsx index.ts"
+  },
+  "dependencies": {
+    "llmvantage": "*",
+    "@anthropic-ai/sdk": "^0.90.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}
