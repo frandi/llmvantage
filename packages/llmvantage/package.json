@@ -1,0 +1,56 @@
+{
+  "name": "llmvantage",
+  "version": "0.1.0",
+  "description": "Lightweight, zero-dependency observability layer for LLM API calls in TypeScript/Node.js.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    },
+    "./sinks/console": {
+      "types": "./dist/esm/sinks/console.d.ts",
+      "import": "./dist/esm/sinks/console.js",
+      "require": "./dist/cjs/sinks/console.js"
+    },
+    "./plugins/normalize-tokens": {
+      "types": "./dist/esm/plugins/normalize-tokens.d.ts",
+      "import": "./dist/esm/plugins/normalize-tokens.js",
+      "require": "./dist/cjs/plugins/normalize-tokens.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "npm run build:clean && npm run build:esm && npm run build:cjs && npm run build:fixup",
+    "build:clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:fixup": "node scripts/fixup-dist.mjs",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.esm.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  },
+  "keywords": [
+    "llm",
+    "observability",
+    "anthropic",
+    "openai",
+    "gemini",
+    "fetch",
+    "telemetry"
+  ]
+}
