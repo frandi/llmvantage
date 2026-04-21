@@ -35,6 +35,11 @@
       "types": "./dist/esm/plugins/normalize-tokens.d.ts",
       "import": "./dist/esm/plugins/normalize-tokens.js",
       "require": "./dist/cjs/plugins/normalize-tokens.js"
+    },
+    "./plugins/redact-pii": {
+      "types": "./dist/esm/plugins/redact-pii.d.ts",
+      "import": "./dist/esm/plugins/redact-pii.js",
+      "require": "./dist/cjs/plugins/redact-pii.js"
     }
   },
   "files": [
