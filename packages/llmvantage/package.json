@@ -31,6 +31,16 @@
       "import": "./dist/esm/sinks/console.js",
       "require": "./dist/cjs/sinks/console.js"
     },
+    "./sinks/ndjson-file": {
+      "types": "./dist/esm/sinks/ndjson-file.d.ts",
+      "import": "./dist/esm/sinks/ndjson-file.js",
+      "require": "./dist/cjs/sinks/ndjson-file.js"
+    },
+    "./sinks/http": {
+      "types": "./dist/esm/sinks/http.d.ts",
+      "import": "./dist/esm/sinks/http.js",
+      "require": "./dist/cjs/sinks/http.js"
+    },
     "./plugins/normalize-tokens": {
       "types": "./dist/esm/plugins/normalize-tokens.d.ts",
       "import": "./dist/esm/plugins/normalize-tokens.js",

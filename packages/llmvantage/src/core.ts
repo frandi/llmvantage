@@ -114,6 +114,10 @@ function safeParseJson(text: string): unknown {
 
 globalThis.fetch = patchedFetch as typeof fetch;
 
+export function getOriginalFetch(): typeof globalThis.fetch {
+  return originalFetch;
+}
+
 export const observer: Observer = {
   use(plugin) {
     if (sinksRegistered) {
