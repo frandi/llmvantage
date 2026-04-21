@@ -1,95 +1,94 @@
-# llmvantage
+# llmvantage — monorepo
 
-[![npm version](https://img.shields.io/npm/v/llmvantage.svg)](https://www.npmjs.com/package/llmvantage)
-[![npm downloads](https://img.shields.io/npm/dm/llmvantage.svg)](https://www.npmjs.com/package/llmvantage)
-[![license](https://img.shields.io/npm/l/llmvantage.svg)](https://github.com/frandi/llmvantage/blob/main/packages/llmvantage/LICENSE)
-[![node](https://img.shields.io/node/v/llmvantage.svg)](https://www.npmjs.com/package/llmvantage)
+Repository for the [`llmvantage`](packages/llmvantage/README.md) package: a lightweight, zero-dependency observability layer for LLM API calls in TypeScript/Node.js.
 
-Lightweight, zero-dependency observability layer for LLM API calls in TypeScript/Node.js.
+> **Using the library?** Start at [`packages/llmvantage/README.md`](packages/llmvantage/README.md) — that's the user-facing documentation and the canonical npm page.
+>
+> **Working on the library?** You're in the right place. Read on.
 
-llmvantage captures raw request/response data from **Anthropic**, **OpenAI**, and **Gemini** without changing your existing call sites, and routes every event through a single plugin pipeline before it reaches any sink — your one enforcement point for redaction, enrichment, and policy.
-
-## Install
+## Quick start (for contributors)
 
 ```bash
-npm install llmvantage
+git clone https://github.com/frandi/llmvantage.git
+cd llmvantage
+npm install           # installs every workspace under packages/* and demos/*
+npm test              # runs the test suite for packages/llmvantage
+npm run typecheck     # tsc --noEmit
+npm run build         # emits dist/esm + dist/cjs under packages/llmvantage
 ```
 
-Node.js 18+. Ships both ESM and CommonJS builds.
+Node.js **18+** is required (the fetch patch relies on `response.body.tee()`).
 
-## Quick start
-
-`llmvantage` must be imported before any LLM SDK, because the SDK needs to observe the patched `globalThis.fetch`.
-
-```ts
-// index.ts — must be the first import in your entry point
-import "llmvantage";
-import { observer } from "llmvantage";
-import { normalizeTokens } from "llmvantage/plugins/normalize-tokens";
-import { consoleSink } from "llmvantage/sinks/console";
-import Anthropic from "@anthropic-ai/sdk";
-
-observer
-  .use(normalizeTokens)
-  .pipe(consoleSink)
-  .onError((err) => console.warn("[llmvantage]", err.phase, err.error.message));
-
-const client = new Anthropic();
-await client.messages.create({
-  model: "claude-haiku-4-5",
-  max_tokens: 128,
-  messages: [{ role: "user", content: "Say hi" }],
-});
-// → {"t":"...","provider":"anthropic","endpoint":"/v1/messages","latencyMs":412,
-//    "streaming":false,"tokens":{"inputTokens":12,"outputTokens":8,"totalTokens":20}}
-```
-
-CommonJS is identical, just swap the imports:
-
-```js
-require("llmvantage");
-const { observer } = require("llmvantage");
-const { normalizeTokens } = require("llmvantage/plugins/normalize-tokens");
-const { consoleSink } = require("llmvantage/sinks/console");
-```
-
-See the [`demos/`](demos) directory for end-to-end examples against Anthropic, OpenAI (Responses API), and Gemini.
-
-## The compliance boundary
-
-Plugins run before any sink receives an event. Once you call `observer.pipe(...)`, adding more plugins throws — making the plugin chain your single enforcement point for PII redaction, field filtering, and policy transforms.
-
-```ts
-// Conceptual — only normalizeTokens and consoleSink ship today;
-// redactPii, Redis/file sinks, and others are planned.
-observer
-  .use(redactPii)                       // compliance plugins first
-  .use(normalizeTokens)
-  .pipe(redisStreamSink(redis))         // sinks only see post-compliance data
-  .pipe(fileSink("./events.ndjson"));
-```
-
-Everything downstream of a sink — dashboards, collectors, alerting — can treat its input as already compliant and does not need to re-implement policy checks.
-
-## Project layout
+## Repo layout
 
 ```
 llmvantage/
-├── packages/llmvantage/              # the publishable package
+├── packages/llmvantage/          # the publishable package
 │   ├── src/
-│   │   ├── core.ts                   # observer + fetch patch
-│   │   ├── types.ts                  # LLMEvent, Plugin, Sink, ...
-│   │   ├── providers.ts              # hostname filter
+│   │   ├── core.ts               # observer + fetch patch
+│   │   ├── types.ts              # LLMEvent, Plugin, Sink, ObserverError, ...
+│   │   ├── providers.ts          # hostname filter (Anthropic/OpenAI/Gemini)
+│   │   ├── buffer.ts             # createBuffer — batched delivery + drain
 │   │   ├── plugins/
-│   │   │   └── normalize-tokens.ts
+│   │   │   ├── normalize-tokens.ts
+│   │   │   ├── redact-pii.ts
+│   │   │   └── README.md
 │   │   └── sinks/
-│   │       └── console.ts
-│   └── test/
+│   │       ├── console.ts
+│   │       ├── ndjson-file.ts
+│   │       ├── http.ts
+│   │       └── README.md
+│   ├── test/                     # node:test + assert/strict
+│   ├── scripts/fixup-dist.mjs    # post-build ESM/CJS package.json shims
+│   └── README.md                 # ← user-facing docs (npm page)
 ├── demos/
-│   ├── 01-esm/                       # TypeScript ESM — Anthropic + Gemini
-│   └── 02-cjs/                       # Plain CommonJS — OpenAI Responses API
-└── docs/llmvantage-spec.docx         # full specification
+│   ├── 01-esm/                   # TypeScript ESM — Anthropic + Gemini
+│   ├── 02-cjs/                   # CommonJS       — OpenAI Responses API
+│   └── 03-buffer/                # createBuffer   — batching + graceful drain
+└── docs/
+    ├── llmvantage-spec.md        # full specification
+    └── llmvantage-spec.docx
 ```
+
+## Working on the code
+
+### Daily loop
+
+```bash
+npm test               # full suite, ~0.5 s
+npm run typecheck      # strict mode, no emit
+npm run build          # dual-build ESM + CJS + subpath exports
+```
+
+Tests live at [`packages/llmvantage/test/*.test.ts`](packages/llmvantage/test). They use `node:test` + `assert/strict` directly (no Jest, Vitest, or ts-jest) — run via `tsx`. The pattern is: `beforeEach(__internal.reset)` to clear observer state between tests, then exercise the pipeline via `__internal.runPipeline(event)` which bypasses the fetch patch.
+
+### Authoring plugins
+
+Plugins are `(event: LLMEvent) => LLMEvent | Promise<LLMEvent>`. See [`packages/llmvantage/src/plugins/README.md`](packages/llmvantage/src/plugins/README.md) for the compliance-boundary contract, the tree-walker pattern used by `redactPii`, and extensibility notes (e.g. `PII_PATTERNS` is a mutable export).
+
+### Authoring sinks
+
+Sinks are `(event: LLMEvent) => void | Promise<void>`. See [`packages/llmvantage/src/sinks/README.md`](packages/llmvantage/src/sinks/README.md) for composition patterns (retry, timeout, rotation, batching via `createBuffer`) and the shutdown contract.
+
+### Running the demos
+
+Each demo is its own workspace. From the repo root:
+
+```bash
+cp demos/01-esm/.env.example demos/01-esm/.env   # fill in API keys
+npm start -w demo-01-esm                          # tsx index.ts
+
+cp demos/03-buffer/.env.example demos/03-buffer/.env
+npm start -w demo-03-buffer                       # buffered burst + drain
+```
+
+The demos share the top-level `node_modules` via npm workspaces — no per-demo install step.
+
+## The compliance boundary (why it matters)
+
+`observer.use(plugin)` must come before `observer.pipe(sink)`. Once any sink is registered, further `use()` calls throw. This makes the plugin chain the **single** enforcement point for redaction, filtering, and policy: every sink — every collector, every dashboard, every alert pipeline — can treat its input as already compliant.
+
+The spec calls this the *compliance boundary*. It's the architectural reason the library exists.
 
 ## Status
 
@@ -97,23 +96,26 @@ llmvantage/
 |---|---|
 | Core observer + fetch patch | ✅ done |
 | `normalizeTokens` plugin | ✅ done |
+| `redactPii` plugin | ✅ done |
 | `consoleSink` | ✅ done |
-| Other plugins (`redactPii`, `costEstimate`) | planned |
-| Sinks (`ndjson-file`, `http`, `redis-stream`) | planned |
+| `fileSink` (NDJSON) | ✅ done |
+| `httpSink` | ✅ done |
+| `createBuffer` (batching + graceful drain) | ✅ done |
+| `costEstimate` plugin | planned |
+| `redisStreamSink` | planned |
 | Adapters (axios, `http`/`https`, gRPC, fetch-injector, wrapper) | planned |
 | Canary check | planned |
-| Backpressure buffer with graceful drain | planned |
 
-See [docs/llmvantage-spec.docx](docs/llmvantage-spec.docx) for the full specification.
+## Spec
 
-## Development
+The full specification lives at [`docs/llmvantage-spec.md`](docs/llmvantage-spec.md) (a rendered `.docx` is checked in alongside). When behaviour and spec disagree, the spec is authoritative — file an issue.
 
-```bash
-npm install       # install workspace dependencies
-npm test          # run the test suite
-npm run build     # emit dist/esm + dist/cjs
-npm run typecheck # type-check only
-```
+## Contributing
+
+1. Read the spec section relevant to your change.
+2. Add tests first — existing tests in `packages/llmvantage/test/` are the fastest way to see the testing style.
+3. `npm run typecheck && npm test` must pass.
+4. New plugins/sinks need a README entry (`plugins/README.md` or `sinks/README.md`) and — if they have a public API surface — a subpath export in `packages/llmvantage/package.json`.
 
 ## License
 

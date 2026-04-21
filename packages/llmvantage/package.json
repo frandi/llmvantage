@@ -9,7 +9,7 @@
     "url": "git+https://github.com/frandi/llmvantage.git",
     "directory": "packages/llmvantage"
   },
-  "homepage": "https://github.com/frandi/llmvantage#readme",
+  "homepage": "https://github.com/frandi/llmvantage/tree/main/packages/llmvantage#readme",
   "bugs": {
     "url": "https://github.com/frandi/llmvantage/issues"
   },
