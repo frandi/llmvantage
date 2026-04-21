@@ -41,6 +41,11 @@
       "import": "./dist/esm/sinks/http.js",
       "require": "./dist/cjs/sinks/http.js"
     },
+    "./buffer": {
+      "types": "./dist/esm/buffer.d.ts",
+      "import": "./dist/esm/buffer.js",
+      "require": "./dist/cjs/buffer.js"
+    },
     "./plugins/normalize-tokens": {
       "types": "./dist/esm/plugins/normalize-tokens.d.ts",
       "import": "./dist/esm/plugins/normalize-tokens.js",

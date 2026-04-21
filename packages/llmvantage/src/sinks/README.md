@@ -165,9 +165,83 @@ const onlySlow = (inner: Sink, thresholdMs: number): Sink =>
 
 ---
 
+## Batching & graceful drain (`llmvantage/buffer`)
+
+Fire-per-event is fine for development and low-QPS apps, but collapses under production load: one TCP round-trip per event for `httpSink`, up to ~16 KB of userspace writes lost on abrupt exit for `fileSink`, zero resilience to transient collector stalls. `createBuffer` introduces an in-memory bounded queue + interval-flushed batching primitive that decouples the pipeline from delivery.
+
+```typescript
+import { observer, createBuffer } from 'llmvantage';
+import { httpSink } from 'llmvantage/sinks/http';
+```
+
+### Pattern A — batch delivery to a collector
+
+Deliver N events per HTTP POST instead of N round-trips. The handler owns the wire format:
+
+```typescript
+const buf = createBuffer(
+  async (batch) => {
+    const res = await fetch('https://collector.internal/events', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ events: batch }),
+    });
+    if (!res.ok) throw new Error(`collector ${res.status}`);
+  },
+  {
+    flushInterval: 500,         // ms between drain ticks
+    batchSize:     50,
+    maxQueueSize:  10_000,
+    dropPolicy:    'oldest',    // keep the freshest events under stall
+    onError: (err, batch) => app.metrics.increment('llm.batch.failed', batch.length),
+    onDrop:  ()           => app.metrics.increment('llm.event.dropped'),
+  }
+);
+
+observer.pipe(buf.enqueue);     // enqueue matches the Sink signature exactly
+```
+
+### Pattern B — time-decouple an existing sink
+
+Wrap any existing sink so it receives one batch-worth of events per tick instead of per event. The adapter is three lines:
+
+```typescript
+const inner = httpSink('https://collector.internal/events');
+const buf = createBuffer(async (batch) => {
+  for (const e of batch) await inner(e);   // or: await Promise.all(batch.map(inner))
+});
+observer.pipe(buf.enqueue);
+```
+
+Use sequential `for…await` for strict ordering; use `Promise.all` when the inner sink's writes are commutative (e.g. S3, Kafka).
+
+### Shutdown
+
+`handleSignals: true` (the default) joins the buffer to a **single** process-wide `beforeExit` + `SIGTERM` pair that drains every active buffer before exit. Multiple buffers share the one handler — no races between buffers racing `process.exit()`.
+
+- `beforeExit` — buffers drain naturally when the event loop empties.
+- `SIGTERM` — all buffers drain, then `process.exit(0)`.
+- `handleSignals: false` — you own drain via explicit `await buf.flush()` before exit.
+
+`flush()` is concurrent-safe and idempotent: two callers share the same in-flight drain promise.
+
+### Drop policy
+
+`"oldest"` (default) is the telemetry-appropriate choice — during a collector stall the most recent events are more actionable than ones that arrived 30 s ago. `"newest"` (tail drop) is better for work queues where already-accepted work must be honored.
+
+FIFO order is preserved under `"newest"` (the queue is a strict tail). Under `"oldest"` the head is shifted, so strict FIFO across the whole event history is not guaranteed — but batch-internal order is always preserved.
+
+### Cost & tradeoffs
+
+- **Backpressure** is not signaled back to the observer pipeline in v1. `onDrop` is the feedback mechanism — wire it to your metrics.
+- `Array.prototype.shift()` is O(n); only incurred under sustained `"oldest"` overload. A ring-buffer optimisation is deferred until benchmarks justify it.
+- One batch per interval tick — never blocks the event loop during bursts.
+
+---
+
 ## Why composition, not configuration
 
-Sinks are pure leaf functions. All configuration lives in factory closures. All cross-cutting concerns (retry, timeout, batching, rotation, compression, filtering) **compose by wrapping** rather than as flags on the shipped sinks. This keeps the bundled sinks minimal and honest about what they do, and it means `buffer.ts` — the next milestone — will itself be a sink wrapper under this same model: `buffer(innerSink, opts)` returning a new `Sink` that queues and batch-flushes.
+Sinks are pure leaf functions. All configuration lives in factory closures. All cross-cutting concerns (retry, timeout, batching, rotation, compression, filtering) **compose by wrapping** rather than as flags on the shipped sinks. This keeps the bundled sinks minimal and honest about what they do, and `buffer` is itself a composition primitive under the same model — `buf.enqueue` is a `Sink`, so it slots into `observer.pipe()` with no adapter.
 
 ## Rules
 
