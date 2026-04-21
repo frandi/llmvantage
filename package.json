@@ -1,0 +1,13 @@
+{
+  "name": "llmvantage-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "demos/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w llmvantage",
+    "test": "npm run test -w llmvantage",
+    "typecheck": "npm run typecheck -w llmvantage"
+  }
+}
