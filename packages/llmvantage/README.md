@@ -1,5 +1,10 @@
 # llmvantage
 
+[![npm version](https://img.shields.io/npm/v/llmvantage.svg)](https://www.npmjs.com/package/llmvantage)
+[![npm downloads](https://img.shields.io/npm/dm/llmvantage.svg)](https://www.npmjs.com/package/llmvantage)
+[![license](https://img.shields.io/npm/l/llmvantage.svg)](https://github.com/frandi/llmvantage/blob/main/packages/llmvantage/LICENSE)
+[![node](https://img.shields.io/node/v/llmvantage.svg)](https://www.npmjs.com/package/llmvantage)
+
 Lightweight, zero-dependency observability layer for LLM API calls in TypeScript/Node.js.
 
 `llmvantage` captures raw request/response data from **Anthropic**, **OpenAI**, and **Gemini** without changing your existing call sites, and routes every event through a single plugin pipeline before it reaches any sink — your one enforcement point for redaction, enrichment, and policy.
