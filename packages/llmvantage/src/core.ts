@@ -9,13 +9,19 @@ import { detectProvider, isLLMHost } from "./providers.js";
 
 type FetchInput = string | URL | Request;
 
+export type IngestInput =
+  Omit<LLMEvent, "schemaVersion" | "source" | "timestamp"> & {
+    timestamp?: string;
+  };
+
 type Observer = {
   use(plugin: Plugin): Observer;
   pipe(sink: Sink): Observer;
   onError(handler: ErrorHandler): Observer;
+  ingest(input: IngestInput): Promise<void>;
 };
 
-const SCHEMA_VERSION = "1.0";
+const SCHEMA_VERSION = "1.1";
 
 const plugins: Plugin[] = [];
 const sinks: Sink[] = [];
@@ -65,6 +71,7 @@ async function patchedFetch(input: FetchInput, init?: RequestInit): Promise<Resp
     setImmediate(() => {
       runPipeline({
         schemaVersion: SCHEMA_VERSION,
+        source: "fetch",
         provider, endpoint, request,
         response: undefined,
         latencyMs: performance.now() - t0,
@@ -82,6 +89,7 @@ async function patchedFetch(input: FetchInput, init?: RequestInit): Promise<Resp
       const body = streaming ? text : safeParseJson(text);
       await runPipeline({
         schemaVersion: SCHEMA_VERSION,
+        source: "fetch",
         provider, endpoint, request,
         response: body,
         latencyMs: performance.now() - t0,
@@ -136,6 +144,20 @@ export const observer: Observer = {
   onError(handler) {
     errorHandlers.push(handler);
     return observer;
+  },
+  ingest(input) {
+    const event: LLMEvent = {
+      schemaVersion: SCHEMA_VERSION,
+      source: "manual",
+      provider: input.provider,
+      endpoint: input.endpoint,
+      request: input.request,
+      response: input.response,
+      latencyMs: input.latencyMs,
+      timestamp: input.timestamp ?? new Date().toISOString(),
+      streaming: input.streaming,
+    };
+    return runPipeline(event);
   },
 };
 

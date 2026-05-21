@@ -71,6 +71,28 @@ observer
 
 Everything downstream of a sink — dashboards, collectors, alerting — can treat its input as already compliant and does not need to re-implement policy checks.
 
+## Ingesting events manually
+
+The fetch patch covers any LLM call that goes through `globalThis.fetch`. For everything else — an SDK wrapper that already has structured call data (LangChain, an internal proxy), a non-fetch transport, a replay of historical events — call `observer.ingest()` to push an event through the same plugin chain and sinks.
+
+```ts
+import { observer } from "llmvantage";
+
+await observer.ingest({
+  provider: "anthropic",
+  endpoint: "/v1/messages",
+  request:  { model, messages },
+  response: result,
+  latencyMs: 421,
+  streaming: false,
+  // timestamp is optional — defaults to new Date().toISOString()
+});
+```
+
+Every event carries a `source: "fetch" | "manual"` field so sinks can distinguish wire-captured events from wrapper-fed ones. The returned promise resolves after every sink has run, which makes the call awaitable in tests and shutdown paths.
+
+> **Avoid double-counting.** If a wrapper calls `observer.ingest()` for a request that *also* goes through `fetch`, you'll get two events (one per path). Either filter by `source` in your sink, or stop the wrapper from forwarding for providers the fetch patch already covers.
+
 ## What's included
 
 | | Import | Purpose |
@@ -84,6 +106,7 @@ Everything downstream of a sink — dashboards, collectors, alerting — can tre
 | `httpSink(url, headers?)` | `llmvantage/sinks/http` | POST each event as JSON (uses the unpatched fetch) |
 | **Primitives** | | |
 | `createBuffer` | `llmvantage` (root) | In-memory bounded queue + interval-flushed batching; graceful `SIGTERM`/`beforeExit` drain |
+| `observer.ingest(event)` | `llmvantage` (root) | Push a non-fetch event through the same plugin chain + sinks (stamped `source: "manual"`) |
 
 Deep-dive docs:
 

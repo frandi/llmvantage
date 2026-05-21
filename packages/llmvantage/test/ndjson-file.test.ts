@@ -7,7 +7,8 @@ import { fileSink, __internal as fileInternal } from "../src/sinks/ndjson-file.j
 import type { LLMEvent, Provider } from "../src/types.js";
 
 const event = (overrides: Partial<LLMEvent> = {}): LLMEvent => ({
-  schemaVersion: "1.0",
+  schemaVersion: "1.1",
+  source: "manual",
   provider: "anthropic" as Provider,
   endpoint: "/v1/messages",
   request: { model: "claude-sonnet-4-5" },

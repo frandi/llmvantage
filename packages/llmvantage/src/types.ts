@@ -1,7 +1,10 @@
 export type Provider = "anthropic" | "openai" | "gemini" | "unknown";
 
+export type EventSource = "fetch" | "manual";
+
 export type LLMEvent = {
   schemaVersion: string;
+  source: EventSource;
   provider: Provider;
   endpoint: string;
   request: unknown;

@@ -7,7 +7,8 @@ import {
 import type { LLMEvent, Provider } from "../src/types.js";
 
 const event = (provider: Provider, response: unknown): LLMEvent => ({
-  schemaVersion: "1.0",
+  schemaVersion: "1.1",
+  source: "manual",
   provider,
   endpoint: "/x",
   request: {},

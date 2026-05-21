@@ -1,4 +1,5 @@
 export { observer } from "./core.js";
+export type { IngestInput } from "./core.js";
 export { createBuffer } from "./buffer.js";
 export type {
   Buffer,
@@ -8,6 +9,7 @@ export type {
 } from "./buffer.js";
 export type {
   ErrorHandler,
+  EventSource,
   LLMEvent,
   ObserverError,
   ObserverErrorPhase,

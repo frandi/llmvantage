@@ -7,7 +7,8 @@ const LLM_URL = "https://api.anthropic.com/v1/messages";
 const NON_LLM_URL = "https://example.com/other";
 
 const baseEvent = (): LLMEvent => ({
-  schemaVersion: "1.0",
+  schemaVersion: "1.1",
+  source: "manual",
   provider: "anthropic",
   endpoint: "/v1/messages",
   request: { model: "claude" },
@@ -164,7 +165,8 @@ describe("fetch patch", () => {
     assert.equal((evt.request as any).model, "claude-sonnet-4-5");
     assert.equal((evt.response as any).id, "msg_1");
     assert.equal(evt.streaming, false);
-    assert.equal(evt.schemaVersion, "1.0");
+    assert.equal(evt.schemaVersion, "1.1");
+    assert.equal(evt.source, "fetch");
     assert.equal(typeof evt.latencyMs, "number");
   });
 
@@ -188,5 +190,115 @@ describe("fetch patch", () => {
     assert.equal(captured.length, 1);
     assert.equal(captured[0]!.streaming, true);
     assert.equal(captured[0]!.response, sseBody);
+  });
+});
+
+describe("observer.ingest", () => {
+  beforeEach(() => __internal.reset());
+
+  test("stamps source:\"manual\", current schemaVersion, and a default timestamp", async () => {
+    const captured: LLMEvent[] = [];
+    observer.pipe((e) => { captured.push(e); });
+
+    const before = Date.now();
+    await observer.ingest({
+      provider: "anthropic",
+      endpoint: "/v1/messages",
+      request: { model: "claude-sonnet-4-5" },
+      response: { id: "msg_1" },
+      latencyMs: 100,
+      streaming: false,
+    });
+    const after = Date.now();
+
+    assert.equal(captured.length, 1);
+    const evt = captured[0]!;
+    assert.equal(evt.source, "manual");
+    assert.equal(evt.schemaVersion, "1.1");
+    assert.equal(evt.provider, "anthropic");
+    assert.equal(evt.endpoint, "/v1/messages");
+    assert.equal((evt.request as any).model, "claude-sonnet-4-5");
+    assert.equal((evt.response as any).id, "msg_1");
+    assert.equal(evt.latencyMs, 100);
+    assert.equal(evt.streaming, false);
+
+    const ts = Date.parse(evt.timestamp);
+    assert.ok(ts >= before && ts <= after, "timestamp must be set to now");
+  });
+
+  test("honors a caller-supplied timestamp", async () => {
+    const captured: LLMEvent[] = [];
+    observer.pipe((e) => { captured.push(e); });
+
+    await observer.ingest({
+      provider: "openai",
+      endpoint: "/v1/responses",
+      request: {},
+      response: {},
+      latencyMs: 5,
+      streaming: false,
+      timestamp: "2026-01-01T00:00:00.000Z",
+    });
+
+    assert.equal(captured[0]!.timestamp, "2026-01-01T00:00:00.000Z");
+  });
+
+  test("runs plugins before sinks (compliance boundary applies)", async () => {
+    const captured: LLMEvent[] = [];
+    observer
+      .use((e) => ({ ...e, endpoint: "/rewritten" }))
+      .pipe((e) => { captured.push(e); });
+
+    await observer.ingest({
+      provider: "gemini",
+      endpoint: "/v1/generate",
+      request: {},
+      response: {},
+      latencyMs: 1,
+      streaming: false,
+    });
+
+    assert.equal(captured[0]!.endpoint, "/rewritten");
+    assert.equal(captured[0]!.source, "manual");
+  });
+
+  test("returned promise resolves after sinks have run", async () => {
+    let sinkDone = false;
+    observer.pipe(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+      sinkDone = true;
+    });
+
+    await observer.ingest({
+      provider: "anthropic",
+      endpoint: "/v1/messages",
+      request: {},
+      response: {},
+      latencyMs: 1,
+      streaming: false,
+    });
+
+    assert.equal(sinkDone, true);
+  });
+
+  test("plugin errors route to onError and prevent sink delivery", async () => {
+    const errors: string[] = [];
+    let sinkCalled = false;
+    observer
+      .use(() => { throw new Error("plugin boom"); })
+      .pipe(() => { sinkCalled = true; })
+      .onError((err) => { errors.push(err.phase); });
+
+    await observer.ingest({
+      provider: "anthropic",
+      endpoint: "/v1/messages",
+      request: {},
+      response: {},
+      latencyMs: 1,
+      streaming: false,
+    });
+
+    assert.deepEqual(errors, ["plugin"]);
+    assert.equal(sinkCalled, false);
   });
 });

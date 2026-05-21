@@ -5,7 +5,8 @@ import { observer, __internal as coreInternal } from "../src/core.js";
 import type { LLMEvent, Provider, Sink } from "../src/types.js";
 
 const event = (overrides: Partial<LLMEvent> = {}): LLMEvent => ({
-  schemaVersion: "1.0",
+  schemaVersion: "1.1",
+  source: "manual",
   provider: "anthropic" as Provider,
   endpoint: "/v1/messages",
   request: { model: "claude-sonnet-4-5" },

@@ -12,7 +12,8 @@ const event = (
   response: unknown,
   provider: Provider = "anthropic"
 ): LLMEvent => ({
-  schemaVersion: "1.0",
+  schemaVersion: "1.1",
+  source: "manual",
   provider,
   endpoint: "/v1/messages",
   request,
@@ -187,7 +188,7 @@ describe("redactPii — event identity", () => {
       "openai"
     );
     const out = await run(e);
-    assert.equal(out.schemaVersion, "1.0");
+    assert.equal(out.schemaVersion, "1.1");
     assert.equal(out.provider, "openai");
     assert.equal(out.endpoint, "/v1/messages");
     assert.equal(out.latencyMs, 42);

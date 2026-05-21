@@ -4,6 +4,19 @@ A sink is a function `(event: LLMEvent) => void | Promise<void>`. All registered
 
 See [../../../../docs/llmvantage-spec.md](../../../../docs/llmvantage-spec.md) §7 for the full contract.
 
+## Event shape (schema 1.1)
+
+Every event carries a `source: "fetch" | "manual"` discriminator: `"fetch"` for events captured by the fetch patch, `"manual"` for events pushed via `observer.ingest()`. Sinks see both — filter on `source` if a downstream collector should only receive one or the other:
+
+```typescript
+const fetchOnly: Sink = (event) => {
+  if (event.source !== 'fetch') return;
+  // ...
+};
+```
+
+`httpSink`, `fileSink`, and `consoleSink` all serialize `source` as-is, so the field appears verbatim on the wire / in the NDJSON file. If you operate a strict-schema collector, allow the new field before upgrading.
+
 ## Registration
 
 Sinks are registered with `observer.pipe()`, **after** all compliance plugins. Multiple sinks receive the same event concurrently.
