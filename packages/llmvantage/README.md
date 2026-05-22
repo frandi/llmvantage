@@ -19,7 +19,7 @@ Node.js 18+. Ships both ESM and CommonJS builds.
 
 ## Quick start
 
-`llmvantage` must be imported **before any LLM SDK**, because the SDK needs to observe the patched `globalThis.fetch`.
+`llmvantage` must be imported **before any LLM SDK**, because the SDK needs to observe the patched `globalThis.fetch`. The SDK must also use the global `fetch` rather than a bundled HTTP client — see [SDK compatibility](#sdk-compatibility) below for which versions work.
 
 ```ts
 // index.ts — must be the first import in your entry point
@@ -56,6 +56,18 @@ const { consoleSink } = require("llmvantage/sinks/console");
 ```
 
 End-to-end examples against Anthropic, OpenAI (Responses API), and Gemini live in the [`demos/`](https://github.com/frandi/llmvantage/tree/main/demos) directory of the repo.
+
+## SDK compatibility
+
+`llmvantage` intercepts LLM calls by patching `globalThis.fetch`. An SDK is captured only if it routes its requests through that global — SDKs that bundle their own HTTP client (e.g. `node-fetch`) bypass the patch silently. If your sinks never receive events for a particular provider, this is the most likely cause.
+
+| SDK | Minimum version | Notes |
+|---|---|---|
+| `@anthropic-ai/sdk` | any recent version | Uses `globalThis.fetch`. |
+| `openai` | **`^5.0.0`** | v4 vendors `node-fetch` via its `_shims/node-runtime.js` and is **not** intercepted. v5+ uses native fetch. |
+| `@google/genai` | any recent version | Uses `globalThis.fetch`. |
+
+For SDKs that can't be upgraded (or for non-fetch transports — LangChain, internal proxies, replay tooling), use [`observer.ingest()`](#ingesting-events-manually) to push events through the same plugin chain manually.
 
 ## The compliance boundary
 
@@ -98,7 +110,7 @@ Every event carries a `source: "fetch" | "manual"` field so sinks can distinguis
 | | Import | Purpose |
 |---|---|---|
 | **Plugins** | | |
-| `normalizeTokens` | `llmvantage/plugins/normalize-tokens` | Unified `{ inputTokens, outputTokens, totalTokens }` across providers |
+| `normalizeTokens` | `llmvantage/plugins/normalize-tokens` | Unified `{ inputTokens, outputTokens, totalTokens, cachedInputTokens?, cacheCreationInputTokens? }` across providers |
 | `redactPii` | `llmvantage/plugins/redact-pii` | Tree-walker redaction — emails, US phones, `sk-*` API keys (extensible) |
 | **Sinks** | | |
 | `consoleSink` | `llmvantage/sinks/console` | One-line JSON summary to stdout (dev) |

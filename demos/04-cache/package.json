@@ -1,0 +1,21 @@
+{
+  "name": "demo-04-cache",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Validates normalizeTokens cache-field extraction across Anthropic, OpenAI, and Gemini by firing real calls with configurable prompt size and run count.",
+  "scripts": {
+    "start": "tsx index.ts"
+  },
+  "dependencies": {
+    "llmvantage": "*",
+    "@anthropic-ai/sdk": "^0.90.0",
+    "openai": "^6.39.0",
+    "@google/genai": "^2.6.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

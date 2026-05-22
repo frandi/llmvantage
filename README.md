@@ -44,7 +44,8 @@ llmvantage/
 ├── demos/
 │   ├── 01-esm/                   # TypeScript ESM — Anthropic + Gemini
 │   ├── 02-cjs/                   # CommonJS       — OpenAI Responses API
-│   └── 03-buffer/                # createBuffer   — batching + graceful drain
+│   ├── 03-buffer/                # createBuffer   — batching + graceful drain
+│   └── 04-cache/                 # Cache tokens   — Anthropic / OpenAI / Gemini validation
 └── docs/
     ├── llmvantage-spec.md        # full specification
     └── llmvantage-spec.docx
