@@ -110,4 +110,89 @@ describe("normalizeTokens", () => {
     assert.equal(out.endpoint, e.endpoint);
     assert.equal(out.provider, e.provider);
   });
+
+  test("Anthropic cache fields → cached + creation populated", async () => {
+    const out = await run(
+      event("anthropic", {
+        usage: {
+          input_tokens: 50,
+          output_tokens: 100,
+          cache_read_input_tokens: 2048,
+          cache_creation_input_tokens: 512,
+        },
+      })
+    );
+    assert.equal(out.tokens?.cachedInputTokens, 2048);
+    assert.equal(out.tokens?.cacheCreationInputTokens, 512);
+    assert.equal(out.tokens?.inputTokens, 50);
+  });
+
+  test("Anthropic without cache fields → cache keys absent", async () => {
+    const out = await run(
+      event("anthropic", { usage: { input_tokens: 10, output_tokens: 20 } })
+    );
+    assert.equal(out.tokens?.cachedInputTokens, undefined);
+    assert.equal(out.tokens?.cacheCreationInputTokens, undefined);
+    assert.ok(!("cachedInputTokens" in (out.tokens ?? {})));
+    assert.ok(!("cacheCreationInputTokens" in (out.tokens ?? {})));
+  });
+
+  test("OpenAI Chat Completions cached_tokens → cachedInputTokens set", async () => {
+    const out = await run(
+      event("openai", {
+        usage: {
+          prompt_tokens: 2006,
+          completion_tokens: 300,
+          total_tokens: 2306,
+          prompt_tokens_details: { cached_tokens: 1920 },
+        },
+      })
+    );
+    assert.equal(out.tokens?.cachedInputTokens, 1920);
+    assert.equal(out.tokens?.cacheCreationInputTokens, undefined);
+  });
+
+  test("OpenAI Responses API cached_tokens → cachedInputTokens set", async () => {
+    const out = await run(
+      event("openai", {
+        usage: {
+          input_tokens: 5578,
+          output_tokens: 120,
+          total_tokens: 5698,
+          input_tokens_details: { cached_tokens: 4096 },
+        },
+      })
+    );
+    assert.equal(out.tokens?.cachedInputTokens, 4096);
+    assert.equal(out.tokens?.cacheCreationInputTokens, undefined);
+  });
+
+  test("Gemini cachedContentTokenCount → cachedInputTokens set", async () => {
+    const out = await run(
+      event("gemini", {
+        usageMetadata: {
+          promptTokenCount: 5000,
+          candidatesTokenCount: 200,
+          cachedContentTokenCount: 4500,
+        },
+      })
+    );
+    assert.equal(out.tokens?.cachedInputTokens, 4500);
+    assert.equal(out.tokens?.cacheCreationInputTokens, undefined);
+  });
+
+  test("non-numeric cache values are ignored", async () => {
+    const out = await run(
+      event("anthropic", {
+        usage: {
+          input_tokens: 10,
+          output_tokens: 20,
+          cache_read_input_tokens: "2048",
+          cache_creation_input_tokens: null,
+        },
+      })
+    );
+    assert.equal(out.tokens?.cachedInputTokens, undefined);
+    assert.equal(out.tokens?.cacheCreationInputTokens, undefined);
+  });
 });

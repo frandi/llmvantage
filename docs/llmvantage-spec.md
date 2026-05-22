@@ -285,16 +285,19 @@ Extracts token usage from provider-specific response schemas and adds a normaliz
 ```
 // Added to event after plugin runs:
 tokens: {
-  inputTokens  : number;
-  outputTokens : number;
-  totalTokens  : number;
+  inputTokens               : number;
+  outputTokens              : number;
+  totalTokens               : number;
+  cachedInputTokens?        : number; // tokens served from prompt cache
+  cacheCreationInputTokens? : number; // tokens written to cache (Anthropic only)
 } | null
 ```
-| Provider | Source field | Notes |
-| --- | --- | --- |
-| Anthropic | response.usage.input_tokens / output_tokens | Cache tokens not included |
-| OpenAI | response.usage.prompt_tokens / completion_tokens | total_tokens passed through |
-| Gemini | response.usageMetadata.promptTokenCount | candidatesTokenCount for output |
+| Provider | Input / output | Cache fields | `inputTokens` includes cached? |
+| --- | --- | --- | --- |
+| Anthropic | usage.input_tokens / output_tokens | usage.cache_read_input_tokens → cachedInputTokens; usage.cache_creation_input_tokens → cacheCreationInputTokens | No (exclusive) |
+| OpenAI (Responses API) | usage.input_tokens / output_tokens | usage.input_tokens_details.cached_tokens → cachedInputTokens | Yes (inclusive) |
+| OpenAI (Chat Completions) | usage.prompt_tokens / completion_tokens | usage.prompt_tokens_details.cached_tokens → cachedInputTokens | Yes (inclusive) |
+| Gemini | usageMetadata.promptTokenCount / candidatesTokenCount | usageMetadata.cachedContentTokenCount → cachedInputTokens | Yes (inclusive) |
 
 
 ## 5.2  Writing a custom plugin

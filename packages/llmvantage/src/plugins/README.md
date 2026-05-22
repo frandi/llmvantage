@@ -84,17 +84,23 @@ tokens: {
   inputTokens:  number;
   outputTokens: number;
   totalTokens:  number;
+  cachedInputTokens?:        number; // tokens served from prompt cache
+  cacheCreationInputTokens?: number; // tokens written to cache (Anthropic only)
 } | null
 ```
 
 ### Provider mapping
 
-| Provider | Source field | Notes |
-|---|---|---|
-| Anthropic | `response.usage.input_tokens` / `output_tokens` | Cache tokens not included |
-| OpenAI (Responses API) | `response.usage.input_tokens` / `output_tokens` | `total_tokens` passed through when present |
-| OpenAI (Chat Completions) | `response.usage.prompt_tokens` / `completion_tokens` | `total_tokens` passed through when present |
-| Gemini | `response.usageMetadata.promptTokenCount` / `candidatesTokenCount` | `totalTokens` computed as sum |
+| Provider | Input / output | Cache | `inputTokens` includes cached? |
+|---|---|---|---|
+| Anthropic | `usage.input_tokens` / `output_tokens` | `usage.cache_read_input_tokens` → `cachedInputTokens`; `usage.cache_creation_input_tokens` → `cacheCreationInputTokens` | **No** — `input_tokens` is exclusive of cached/created |
+| OpenAI (Responses API) | `usage.input_tokens` / `output_tokens` | `usage.input_tokens_details.cached_tokens` → `cachedInputTokens` | **Yes** — `input_tokens` is inclusive |
+| OpenAI (Chat Completions) | `usage.prompt_tokens` / `completion_tokens` | `usage.prompt_tokens_details.cached_tokens` → `cachedInputTokens` | **Yes** — `prompt_tokens` is inclusive |
+| Gemini | `usageMetadata.promptTokenCount` / `candidatesTokenCount` | `usageMetadata.cachedContentTokenCount` → `cachedInputTokens` | **Yes** — `promptTokenCount` is inclusive |
+
+Cache fields are only set when the source value is a finite number; otherwise the key is omitted (no `undefined`). Only Anthropic exposes a cache-write counter; for OpenAI and Gemini, `cacheCreationInputTokens` is always absent.
+
+Note the inclusive-vs-exclusive split: a cost-estimate plugin that wants to bill cached input at a discount should compute the fresh-input portion as `inputTokens - (cachedInputTokens ?? 0)` for OpenAI and Gemini, while Anthropic's `inputTokens` is already the fresh portion.
 
 If the response is missing, is not an object, belongs to an unknown provider, or lacks the expected fields, `tokens` is set to `null`. When only input/output are available, `totalTokens` falls back to `inputTokens + outputTokens`.
 
